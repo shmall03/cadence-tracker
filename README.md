@@ -13,6 +13,9 @@ existing notes.
 - **Ideas.** The idea notes already in `Composition Ideas/` sit in one column
   with their stage. Type a new idea and cadence creates the note; click a stage
   chip to move it along. Stage changes append to `Dashboards/Idea Triage.md`.
+- **Finished pieces.** Right-click a project to mark it done or reopen it.
+  Finished projects drop below the active list, dimmed and still openable, so
+  their time stays in the totals without crowding the timer.
 - **The week's shape.** Today, this week, all time, a 14-day bar chart, and the
   recent rows of the log, without opening Obsidian.
 
@@ -42,7 +45,7 @@ somewhere else.
 | `Dashboards/Composition Log.md` | Created on the first log, then appended one table row per session |
 | `Dashboards/Idea Triage.md` | Created on the first stage change, then appended `- YYYY-MM-DD · [[Title]] · stage` |
 | `Composition Ideas/*.md` | Read only, except new notes created from the idea field |
-| `~/.local/share/cadence/projects.json` | Projects and their linked notes |
+| `~/.local/share/cadence/projects.json` | Projects, their linked notes, finished state, and earlier names |
 
 Existing idea frontmatter is never edited: the latest triage line wins, falling
 back to the note's `status/…` tag. A new idea note gets the vault's frontmatter,

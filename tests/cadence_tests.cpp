@@ -3,6 +3,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -200,6 +203,78 @@ private slots:
         // And the link is remembered when the next backend starts.
         Backend reopened(vaultDir.path(), dataDir.path());
         QCOMPARE(reopened.projects().first().toMap().value("note").toString(), note.fileName());
+    }
+
+    void backendFollowsRenamedAndFinishedProjects()
+    {
+        QTemporaryDir vaultDir, dataDir;
+        Vault vault(vaultDir.path());
+        const QDate today(2026, 11, 14);
+        log(vault, today, 30);
+        log(vault, today.addDays(-1), 20);
+        {
+            Backend backend(vaultDir.path(), dataDir.path());
+            QCOMPARE(backend.projects().first().toMap().value("minutes").toInt(), 50);
+        }
+
+        // Rename a project in the saved list and mark it finished, the way an
+        // edit to projects.json would.
+        QFile file(dataDir.path() + "/projects.json");
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        auto root = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+        auto array = root.value("projects").toArray();
+        auto renamed = array.at(0).toObject();
+        QCOMPARE(renamed.value("name").toString(), QString("Cartography of Loss"));
+        renamed["name"] = "Otological Omission";
+        renamed["aliases"] = QJsonArray{"Cartography of Loss"};
+        renamed["done"] = true;
+        array.replace(0, renamed);
+        root["projects"] = array;
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        file.write(QJsonDocument(root).toJson());
+        file.close();
+
+        Backend reopened(vaultDir.path(), dataDir.path());
+        QCOMPARE(reopened.projects().size(), 4);
+        QVERIFY(!reopened.projectNames().contains("Cartography of Loss"));
+
+        const auto last = reopened.projects().last().toMap();
+        QCOMPARE(last.value("name").toString(), QString("Otological Omission"));
+        QCOMPARE(last.value("minutes").toInt(), 50);
+        QVERIFY(last.value("done").toBool());
+        QCOMPARE(last.value("section").toString(), QString("finished"));
+        QCOMPARE(reopened.currentProjectName(), QString("Holes, Scars, and Erosion"));
+
+        // A name that is now an alias cannot be added a second time.
+        reopened.addProject("cartography of loss");
+        QVERIFY(!reopened.error().isEmpty());
+        QCOMPARE(reopened.projects().size(), 4);
+    }
+
+    void backendMarksProjectsDoneAndPersists()
+    {
+        QTemporaryDir vaultDir, dataDir;
+        Backend backend(vaultDir.path(), dataDir.path());
+        const int index = backend.projectNames().indexOf("Cartography of Loss");
+        QVERIFY(index >= 0);
+        backend.setProjectDone(index, true);
+        QCOMPARE(backend.projects().last().toMap().value("name").toString(),
+                 QString("Cartography of Loss"));
+        QVERIFY(backend.projects().last().toMap().value("done").toBool());
+
+        // A finished project is skipped when cycling through projects.
+        backend.setProject(backend.projectNames().indexOf("Holes, Scars, and Erosion"));
+        backend.nextProject();
+        QCOMPARE(backend.currentProjectName(), QString("Belonging"));
+
+        Backend reopened(vaultDir.path(), dataDir.path());
+        QVERIFY(reopened.projects().last().toMap().value("done").toBool());
+        QCOMPARE(reopened.currentProjectName(), QString("Holes, Scars, and Erosion"));
+
+        reopened.setProjectDone(reopened.projectNames().indexOf("Cartography of Loss"), false);
+        QCOMPARE(reopened.projects().first().toMap().value("name").toString(),
+                 QString("Cartography of Loss"));
     }
 
     void backendTotalsAndStreak()

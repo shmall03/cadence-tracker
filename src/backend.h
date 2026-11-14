@@ -88,6 +88,7 @@ public:
     Q_INVOKABLE void setMode(int index);
     Q_INVOKABLE void nextProject();
     Q_INVOKABLE void addProject(const QString &name);
+    Q_INVOKABLE void setProjectDone(int index, bool done);
     Q_INVOKABLE void openProjectNote(int index);
 
     Q_INVOKABLE void addIdea(const QString &title, const QString &body);
@@ -107,6 +108,8 @@ private:
     struct Project {
         QString name;
         QString note;
+        QStringList aliases; // earlier names, so logged rows keep counting
+        bool done = false;
     };
 
     void loadProjects();

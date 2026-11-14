@@ -36,7 +36,7 @@ Obsidian vault. It is append-only: sessions go into
 ## Commands
 
 - `cadence sessions --days 14 --json` — recent logged sessions.
-- `cadence projects --json` — projects and their total minutes.
+- `cadence projects --json` — projects and their total minutes; `done` marks finished pieces, and `aliases` are earlier names that still count toward a project.
 - `cadence ideas --json` — idea notes with stage (heuristic, provisional, active, parked).
 - `cadence log --minutes 25 --project "Cartography of Loss" --mode notation --note "Re-voiced bars 12-18"` — record a finished session.
 - `cadence open` — the window.
@@ -150,8 +150,11 @@ int Cli::log(const QStringList &arguments)
         return fail(QString("unknown mode “%1”; use %2").arg(mode, Backend::modes().join(", ")));
 
     QString project = parser.value(projectOption).trimmed();
-    if (project.isEmpty())
-        project = m_backend.projectNames().value(0, "Unfiled");
+    if (project.isEmpty()) {
+        project = m_backend.projects().value(0).toMap().value("name").toString();
+        if (project.isEmpty())
+            project = "Unfiled";
+    }
 
     Session session;
     session.date = parser.value(dateOption).isEmpty()
@@ -284,6 +287,7 @@ int Cli::projects(const QStringList &arguments)
         object["name"] = map.value("name").toString();
         object["note"] = map.value("note").toString();
         object["minutes"] = map.value("minutes").toInt();
+        object["done"] = map.value("done").toBool();
         array.append(object);
     }
 
@@ -297,9 +301,10 @@ int Cli::projects(const QStringList &arguments)
     }
     for (const auto &value : array) {
         const auto object = value.toObject();
-        out << QString("%1  %2 min\n")
+        out << QString("%1  %2 min%3\n")
                    .arg(object.value("name").toString())
-                   .arg(object.value("minutes").toInt());
+                   .arg(object.value("minutes").toInt())
+                   .arg(object.value("done").toBool() ? "  (finished)" : "");
     }
     return 0;
 }

@@ -214,21 +214,39 @@ ApplicationWindow {
                     clip: true
                     spacing: 2
                     model: backend.projects
+                    section.property: "section"
+                    section.delegate: Item {
+                        width: ListView.view ? ListView.view.width : 0
+                        height: section === "finished" ? 32 : 0
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 6
+                            text: qsTr("Finished")
+                            color: win.faint
+                            font.pixelSize: 10
+                            font.capitalization: Font.AllUppercase
+                        }
+                    }
 
                     delegate: Rectangle {
                         id: projectRow
                         required property int index
                         required property var modelData
 
+                        readonly property bool current: modelData.index === backend.currentProject
+
                         width: ListView.view ? ListView.view.width : 0
                         height: 54
                         radius: Math.min(4, theme.radius)
-                        color: index === backend.currentProject
+                        opacity: modelData.done ? 0.66 : 1
+                        color: current
                                ? win.tint(0.14)
-                               : (rowHover.hovered ? "#1c1c1f" : "transparent")
+                               : (rowMouse.containsMouse ? "#1c1c1f" : "transparent")
 
                         Rectangle {
-                            visible: index === backend.currentProject
+                            visible: projectRow.current
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
@@ -238,32 +256,73 @@ ApplicationWindow {
                             color: win.accent
                         }
 
-                        ColumnLayout {
+                        RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 18
                             anchors.rightMargin: 10
                             anchors.topMargin: 9
                             anchors.bottomMargin: 9
-                            spacing: 2
+                            spacing: 8
 
-                            Text {
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                text: modelData.name
-                                color: index === backend.currentProject ? "#ffffff" : "#d6d6d8"
-                                font.pixelSize: 13
-                                elide: Text.ElideRight
+                                spacing: 2
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: projectRow.current
+                                           ? "#ffffff"
+                                           : (modelData.done ? "#a8a8ad" : "#d6d6d8")
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: win.fmt(modelData.minutes)
+                                    color: win.faint
+                                    font.pixelSize: 11
+                                }
                             }
-                            Text {
-                                text: win.fmt(modelData.minutes)
-                                color: win.faint
-                                font.pixelSize: 11
+
+                            Rectangle {
+                                visible: modelData.done
+                                Layout.alignment: Qt.AlignVCenter
+                                width: doneLabel.implicitWidth + 12
+                                height: 18
+                                radius: Math.min(4, theme.radius)
+                                color: "transparent"
+                                border.color: win.line
+
+                                Text {
+                                    id: doneLabel
+                                    anchors.centerIn: parent
+                                    text: qsTr("Done")
+                                    color: win.faint
+                                    font.pixelSize: 9
+                                    font.capitalization: Font.AllUppercase
+                                }
                             }
                         }
 
-                        HoverHandler { id: rowHover }
-                        TapHandler {
-                            onSingleTapped: backend.setProject(index)
-                            onDoubleTapped: backend.openProjectNote(index)
+                        MouseArea {
+                            id: rowMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: function(mouse) {
+                                if (mouse.button === Qt.RightButton) {
+                                    projectMenu.projectIndex = modelData.index
+                                    projectMenu.projectDone = modelData.done
+                                    projectMenu.popup()
+                                } else {
+                                    backend.setProject(modelData.index)
+                                }
+                            }
+                            onDoubleClicked: function(mouse) {
+                                if (mouse.button === Qt.LeftButton)
+                                    backend.openProjectNote(modelData.index)
+                            }
                         }
                     }
                 }
@@ -310,7 +369,7 @@ ApplicationWindow {
 
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Double-click a project to open its note")
+                    text: qsTr("Double-click a project to open its note. Right-click to mark it done or reopen it.")
                     color: win.faint
                     font.pixelSize: 10
                     wrapMode: Text.WordWrap
@@ -911,6 +970,23 @@ ApplicationWindow {
                     wrapMode: Text.WordWrap
                 }
             }
+        }
+    }
+
+    Menu {
+        id: projectMenu
+        parent: Overlay.overlay
+
+        property int projectIndex: -1
+        property bool projectDone: false
+
+        MenuItem {
+            text: qsTr("Open note")
+            onTriggered: backend.openProjectNote(projectMenu.projectIndex)
+        }
+        MenuItem {
+            text: projectMenu.projectDone ? qsTr("Reopen project") : qsTr("Mark done")
+            onTriggered: backend.setProjectDone(projectMenu.projectIndex, !projectMenu.projectDone)
         }
     }
 

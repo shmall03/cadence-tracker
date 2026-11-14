@@ -163,8 +163,16 @@ void Backend::loadProjects()
         for (const auto &value : array) {
             const auto object = value.toObject();
             const QString name = object.value("name").toString().trimmed();
-            if (!name.isEmpty())
-                m_projectData << Project{name, object.value("note").toString()};
+            if (name.isEmpty())
+                continue;
+            Project project;
+            project.name = name;
+            project.note = object.value("note").toString();
+            project.done = object.value("done").toBool();
+            for (const auto &alias : object.value("aliases").toArray())
+                if (!alias.toString().trimmed().isEmpty())
+                    project.aliases << alias.toString().trimmed();
+            m_projectData << project;
         }
     }
     if (m_projectData.isEmpty()) {
@@ -187,7 +195,15 @@ void Backend::loadProjects()
         if (linked)
             saveProjects();
     }
-    m_currentProject = m_projectData.isEmpty() ? -1 : 0;
+    m_currentProject = -1;
+    for (int i = 0; i < m_projectData.size(); ++i) {
+        if (!m_projectData.at(i).done) {
+            m_currentProject = i;
+            break;
+        }
+    }
+    if (m_currentProject < 0)
+        m_currentProject = m_projectData.isEmpty() ? -1 : 0;
 }
 
 void Backend::seedProjects()
@@ -200,10 +216,10 @@ void Backend::seedProjects()
         return !file.isEmpty() && QFileInfo::exists(path) ? path : QString();
     };
     m_projectData = {
-        {"Cartography of Loss", note("Cartography of Loss")},
-        {"Holes, Scars, and Erosion", note("Holes, Scars, and Erosion")},
-        {"Belonging", {}},
-        {"Filters", {}},
+        {"Cartography of Loss", note("Cartography of Loss"), {}, false},
+        {"Holes, Scars, and Erosion", note("Holes, Scars, and Erosion"), {}, false},
+        {"Belonging", {}, {}, false},
+        {"Filters", {}, {}, false},
     };
 }
 
@@ -214,6 +230,13 @@ void Backend::saveProjects()
         QJsonObject object;
         object["name"] = project.name;
         object["note"] = project.note;
+        object["done"] = project.done;
+        if (!project.aliases.isEmpty()) {
+            QJsonArray aliases;
+            for (const auto &alias : project.aliases)
+                aliases.append(alias);
+            object["aliases"] = aliases;
+        }
         array.append(object);
     }
     QJsonObject root;
@@ -231,30 +254,40 @@ void Backend::reload()
     const QString selected = currentProjectName();
     const QList<Session> all = vault().sessions();
 
-    // A session logged from the command line for a project cadence has not
-    // seen yet still deserves a place in the list.
+    // Sessions remember the name they were logged under. A renamed project
+    // keeps its old names as aliases so the time still counts, and a name
+    // cadence has never seen still gets a place in the list.
     bool added = false;
-    for (const auto &session : all) {
-        if (session.project.isEmpty())
-            continue;
-        const bool known = std::any_of(m_projectData.cbegin(), m_projectData.cend(),
-                                       [&](const Project &p) { return p.name == session.project; });
-        if (!known) {
-            m_projectData << Project{session.project, {}};
-            added = true;
+    const auto resolve = [this](const QString &name) {
+        for (int i = 0; i < m_projectData.size(); ++i) {
+            const Project &project = m_projectData.at(i);
+            if (project.name.compare(name, Qt::CaseInsensitive) == 0)
+                return i;
+            for (const auto &alias : project.aliases)
+                if (alias.compare(name, Qt::CaseInsensitive) == 0)
+                    return i;
         }
+        return -1;
+    };
+    for (const auto &session : all) {
+        if (session.project.isEmpty() || resolve(session.project) >= 0)
+            continue;
+        m_projectData << Project{session.project, {}, {}, false};
+        added = true;
     }
     if (added)
         saveProjects();
 
-    QHash<QString, int> perProject;
+    QHash<int, int> perProject;
     QHash<QDate, int> perDay;
     int todayMinutes = 0, weekMinutes = 0, allMinutes = 0;
     const QDate today = m_now().date();
     const QDate weekStart = today.addDays(1 - today.dayOfWeek());
 
     for (const auto &session : all) {
-        perProject[session.project] += session.minutes;
+        const int index = resolve(session.project);
+        if (index >= 0)
+            perProject[index] += session.minutes;
         perDay[session.date] += session.minutes;
         allMinutes += session.minutes;
         if (session.date == today)
@@ -288,11 +321,22 @@ void Backend::reload()
     }
 
     m_projects.clear();
-    for (const auto &project : m_projectData) {
-        m_projects << QVariantMap{{"name", project.name},
+    // Active pieces first, finished ones collected below them.
+    const auto addProject = [&](int index) {
+        const Project &project = m_projectData.at(index);
+        m_projects << QVariantMap{{"index", index},
+                                  {"name", project.name},
                                   {"note", project.note},
-                                  {"minutes", perProject.value(project.name)}};
-    }
+                                  {"done", project.done},
+                                  {"section", project.done ? "finished" : "active"},
+                                  {"minutes", perProject.value(index)}};
+    };
+    for (int i = 0; i < m_projectData.size(); ++i)
+        if (!m_projectData.at(i).done)
+            addProject(i);
+    for (int i = 0; i < m_projectData.size(); ++i)
+        if (m_projectData.at(i).done)
+            addProject(i);
 
     // Newest first, and enough to see the shape of the week.
     QList<Session> recent = all;
@@ -517,9 +561,14 @@ void Backend::setMode(int index)
 
 void Backend::nextProject()
 {
-    if (m_projectData.isEmpty())
-        return;
-    setProject((m_currentProject + 1) % m_projectData.size());
+    const int count = m_projectData.size();
+    for (int step = 1; step <= count; ++step) {
+        const int index = (m_currentProject + step) % count;
+        if (!m_projectData.at(index).done) {
+            setProject(index);
+            return;
+        }
+    }
 }
 
 void Backend::addProject(const QString &name)
@@ -530,14 +579,27 @@ void Backend::addProject(const QString &name)
         return;
     }
     for (const auto &project : m_projectData) {
-        if (project.name.compare(trimmed, Qt::CaseInsensitive) == 0) {
+        bool taken = project.name.compare(trimmed, Qt::CaseInsensitive) == 0;
+        for (const auto &alias : project.aliases)
+            taken = taken || alias.compare(trimmed, Qt::CaseInsensitive) == 0;
+        if (taken) {
             setError(tr("A project called “%1” already exists.").arg(trimmed));
             return;
         }
     }
-    m_projectData << Project{trimmed, {}};
+    m_projectData << Project{trimmed, {}, {}, false};
     saveProjects();
     m_currentProject = m_projectData.size() - 1;
+    m_error.clear();
+    reload();
+}
+
+void Backend::setProjectDone(int index, bool done)
+{
+    if (index < 0 || index >= m_projectData.size() || m_projectData.at(index).done == done)
+        return;
+    m_projectData[index].done = done;
+    saveProjects();
     m_error.clear();
     reload();
 }
