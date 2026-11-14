@@ -106,6 +106,26 @@ private slots:
         QCOMPARE(vault.ideas().first().stage, QString("parked"));
     }
 
+    void finishedStageIsReadFromTagsAndTriage()
+    {
+        QTemporaryDir dir;
+        Vault vault(dir.path());
+        QDir(dir.path()).mkpath("Composition Ideas");
+        write(dir.path() + "/Composition Ideas/Otological Omission.md",
+              "---\ntags:\n  - status/finished\n---\n# Otological Omission\n\nA finished piece.\n");
+        write(dir.path() + "/Composition Ideas/Threshold Discomfort.md",
+              "---\ntags: [status/provisional]\n---\n# Threshold Discomfort\n\nAn idea.\n");
+        write(dir.path() + "/Dashboards/Idea Triage.md",
+              "- 2026-11-14 · [[Threshold Discomfort]] · finished\n");
+
+        QVERIFY(Vault::isStage("finished"));
+
+        const auto ideas = vault.ideas();
+        QCOMPARE(ideas.size(), 2);
+        for (const auto &idea : ideas)
+            QCOMPARE(idea.stage, QString("finished"));
+    }
+
     void addIdeaCreatesANoteAndRefusesDuplicates()
     {
         QTemporaryDir dir;
@@ -388,6 +408,17 @@ private slots:
                 found = map.value("stage").toString() == "provisional";
         }
         QVERIFY(found);
+
+        // The cycle continues past active into finished.
+        backend.cycleIdeaStage(0);
+        backend.cycleIdeaStage(0);
+        QString stage;
+        for (const auto &value : backend.ideas()) {
+            const auto map = value.toMap();
+            if (map.value("title").toString() == "Spatial Blur")
+                stage = map.value("stage").toString();
+        }
+        QCOMPARE(stage, QString("finished"));
     }
 
     void themeFallsBack()

@@ -155,7 +155,7 @@ QString Vault::sessionsPath() const { return m_root + "/Dashboards/Composition L
 QString Vault::triagePath() const { return m_root + "/Dashboards/Idea Triage.md"; }
 QString Vault::ideasPath() const { return m_root + "/Composition Ideas"; }
 
-QStringList Vault::stages() { return {"heuristic", "provisional", "active", "parked"}; }
+QStringList Vault::stages() { return {"heuristic", "provisional", "active", "finished", "parked"}; }
 
 bool Vault::isStage(const QString &stage) { return stages().contains(stage); }
 
@@ -272,7 +272,7 @@ QList<Idea> Vault::ideas() const
             idea.title = headingMatch.captured(1).trimmed();
 
         idea.stage = "heuristic";
-        static const QRegularExpression status(R"(status/(heuristic|provisional|active|parked))");
+        static const QRegularExpression status(R"(status/(heuristic|provisional|active|finished|parked))");
         const auto statusMatch = status.match(frontmatter(contents));
         if (statusMatch.hasMatch())
             idea.stage = statusMatch.captured(1);
@@ -284,7 +284,7 @@ QList<Idea> Vault::ideas() const
     // A stage change is recorded in the triage note rather than by rewriting
     // the idea note, so the newest line for a note wins.
     static const QRegularExpression event(
-        R"(^-\s*(\d{4}-\d{2}-\d{2})\s*·\s*\[\[([^\]|]+)(?:\|[^\]]*)?\]\]\s*·\s*(heuristic|provisional|active|parked)\s*$)",
+        R"(^-\s*(\d{4}-\d{2}-\d{2})\s*·\s*\[\[([^\]|]+)(?:\|[^\]]*)?\]\]\s*·\s*(heuristic|provisional|active|finished|parked)\s*$)",
         QRegularExpression::MultilineOption);
     QHash<QString, QString> latest;
     auto it = event.globalMatch(QString::fromUtf8(readAll(triagePath())));

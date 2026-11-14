@@ -12,7 +12,8 @@ existing notes.
   you did, then appends a row to `Dashboards/Composition Log.md`.
 - **Ideas.** The idea notes already in `Composition Ideas/` sit in one column
   with their stage. Type a new idea and cadence creates the note; click a stage
-  chip to move it along. Stage changes append to `Dashboards/Idea Triage.md`.
+  chip to move it along, up to `status/finished`. Stage changes append to
+  `Dashboards/Idea Triage.md`.
 - **Finished pieces.** Right-click a project to mark it done or reopen it.
   Finished projects drop below the active list, dimmed and still openable, so
   their time stays in the totals without crowding the timer.

@@ -46,6 +46,7 @@
   "heuristic": "heuristisk",
   "provisional": "foreløbig",
   "active": "aktiv",
+  "finished": "færdig",
   "parked": "parkeret",
   "Shortcuts": "Genveje",
   "Start or pause the timer": "Start eller pause timeren",

@@ -37,7 +37,7 @@ Obsidian vault. It is append-only: sessions go into
 
 - `cadence sessions --days 14 --json` — recent logged sessions.
 - `cadence projects --json` — projects and their total minutes; `done` marks finished pieces, and `aliases` are earlier names that still count toward a project.
-- `cadence ideas --json` — idea notes with stage (heuristic, provisional, active, parked).
+- `cadence ideas --json` — idea notes with stage (heuristic, provisional, active, finished, parked).
 - `cadence log --minutes 25 --project "Cartography of Loss" --mode notation --note "Re-voiced bars 12-18"` — record a finished session.
 - `cadence open` — the window.
 
