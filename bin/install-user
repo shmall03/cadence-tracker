@@ -1,0 +1,22 @@
+#!/bin/sh
+# Install for the current user only, for machines where the system package
+# cannot be installed without a password. The launcher reads these paths too.
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$ROOT/bin/build"
+
+PREFIX="${PREFIX:-$HOME/.local}"
+install -Dm755 "$ROOT/build/cadence" "$PREFIX/bin/cadence"
+install -Dm644 "$ROOT/pkgbuild/cadence.svg" "$PREFIX/share/icons/hicolor/scalable/apps/cadence.svg"
+sed "s|^Exec=cadence |Exec=$PREFIX/bin/cadence |" \
+    "$ROOT/pkgbuild/cadence.desktop" > "$PREFIX/share/applications/cadence.desktop"
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
+echo "Installed $PREFIX/bin/cadence and its launcher entry"

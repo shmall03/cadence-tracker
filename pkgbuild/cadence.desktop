@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=cadence
+Name[da]=cadence
+Comment=Track composition sessions and ideas
+Comment[da]=Registrér kompositionstid og idéer
+Exec=cadence open
+Icon=cadence
+Terminal=false
+Categories=AudioVideo;
+StartupWMClass=cadence
