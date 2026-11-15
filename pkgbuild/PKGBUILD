@@ -1,4 +1,4 @@
-pkgname=cadence
+pkgname=cadence-tracker
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Track composition sessions and ideas between teaching days'
