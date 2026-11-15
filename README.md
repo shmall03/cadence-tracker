@@ -69,6 +69,14 @@ cadence open                 # the window
 
 ## Build, test, install
 
+Install from the AUR with `yay`
+
+```sh
+yay -S cadence-tracker
+```
+
+OR
+
 Requires Qt 6 (`qt6-base`, `qt6-declarative`) and, for the package, `pacman`.
 
 ```sh
